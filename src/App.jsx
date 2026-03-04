@@ -1,11 +1,13 @@
+// src/App.jsx (full file)
 import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { useTheme } from './context/ThemeContext'
 import Watchlist from './pages/Watchlist'
 import Portfolio from './pages/Portfolio'
 import './index.css'
 import { useState } from 'react'
 
-// ── Home Page ───────────────────────────────────────────────────────────────
+// Home
 function Home() {
   return (
     <div className="min-h-screen bg-vault-light flex flex-col items-center justify-center p-6">
@@ -31,9 +33,9 @@ function Home() {
   )
 }
 
-// ── Login Page ──────────────────────────────────────────────────────────────
+// Login
 function Login() {
-  const { login } = useAuth() || {}
+  const { login } = useAuth()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -46,7 +48,6 @@ function Login() {
       return
     }
 
-    // Fake login success
     const fakeUser = { username, token: 'fake-jwt-' + Date.now() }
     login(fakeUser)
     navigate('/dashboard')
@@ -94,7 +95,7 @@ function Login() {
   )
 }
 
-// ── Protected Dashboard ─────────────────────────────────────────────────────
+// Dashboard (protected)
 function Dashboard() {
   const { user, loading } = useAuth()
 
@@ -112,7 +113,7 @@ function Dashboard() {
   )
 }
 
-// ── Signup Placeholder ──────────────────────────────────────────────────────
+// Signup placeholder
 function Signup() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-vault-light p-4">
@@ -124,20 +125,20 @@ function Signup() {
   )
 }
 
-// ── Main App Component ──────────────────────────────────────────────────────
+// App
 function App() {
   const { user, logout } = useAuth()
+  const { darkMode, toggleDarkMode } = useTheme()  // ← this line must be here
 
   return (
     <>
-      {/* Navigation Bar */}
       <nav className="bg-vault-dark text-white p-5 shadow-md">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <Link to="/" className="text-3xl font-bold text-vault-primary">
             CoinVault
           </Link>
 
-          <div className="space-x-8 text-lg">
+          <div className="space-x-8 text-lg flex items-center">
             <Link to="/" className="hover:text-vault-accent transition">Home</Link>
 
             {user ? (
@@ -151,6 +152,14 @@ function App() {
                 >
                   Logout
                 </button>
+                {/* Dark mode toggle – only visible when logged in */}
+                <button
+                  onClick={toggleDarkMode}
+                  className="ml-4 text-2xl hover:text-vault-accent transition"
+                  title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                  {darkMode ? '☀️' : '🌙'}
+                </button>
               </>
             ) : (
               <>
@@ -162,7 +171,6 @@ function App() {
         </div>
       </nav>
 
-      {/* Page Routes */}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
@@ -176,3 +184,4 @@ function App() {
 }
 
 export default App
+

@@ -1,3 +1,4 @@
+// src/context/AuthContext.jsx (full file)
 import { createContext, useContext, useState, useEffect } from 'react'
 
 const AuthContext = createContext()
@@ -6,7 +7,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Load user from localStorage on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('coinvault_user')
     if (storedUser) {

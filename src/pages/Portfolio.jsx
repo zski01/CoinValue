@@ -1,24 +1,62 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Navigate } from 'react-router-dom'
+import axios from 'axios'
 
 function Portfolio() {
   const { user } = useAuth()
 
-  // Load from localStorage or fake data
+  // Portfolio data (units & invested amount)
   const [portfolio, setPortfolio] = useState(() => {
     const saved = localStorage.getItem('coinvault_portfolio')
-    return saved ? JSON.parse(saved) : [
-      { id: 'bitcoin', name: 'Bitcoin (BTC)', units: 0.5, invested: 25000, currentValue: 34210, change: '+36.8%' },
-      { id: 'ethereum', name: 'Ethereum (ETH)', units: 10, invested: 30000, currentValue: 34500, change: '+15.0%' },
-    ]
+    return saved ? JSON.parse(saved) : []
   })
 
-  // Save on change
+  // Live data from CoinGecko
+  const [liveData, setLiveData] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Save portfolio to localStorage
   useEffect(() => {
     localStorage.setItem('coinvault_portfolio', JSON.stringify(portfolio))
   }, [portfolio])
 
+  // Fetch live prices whenever portfolio changes
+  useEffect(() => {
+    if (portfolio.length === 0) return
+
+    const fetchLiveData = async () => {
+      setLoading(true)
+      try {
+        const ids = portfolio.map(item => item.id).join(',')
+        const response = await axios.get(
+          `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&sparkline=false&price_change_percentage=24h`
+        )
+        const dataMap = {}
+        response.data.forEach(coin => {
+          dataMap[coin.id] = {
+            price: coin.current_price,
+            change: coin.price_change_percentage_24h.toFixed(2),
+            image: coin.image,
+          }
+        })
+        setLiveData(dataMap)
+        setError(null)
+      } catch (err) {
+        setError('Failed to load live prices. API may be rate-limited.')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchLiveData()
+    const interval = setInterval(fetchLiveData, 60000) // refresh every minute
+    return () => clearInterval(interval)
+  }, [portfolio])
+
+  // Form state for buy/sell
   const [showForm, setShowForm] = useState(false)
   const [isBuy, setIsBuy] = useState(true)
   const [coinName, setCoinName] = useState('')
@@ -27,7 +65,7 @@ function Portfolio() {
 
   const handleTransaction = (e) => {
     e.preventDefault()
-    if (!coinName || !units || !invested) return
+    if (!coinName || !units || !invested) return alert('Fill all fields')
 
     const numUnits = parseFloat(units)
     const numInvested = parseFloat(invested)
@@ -46,12 +84,7 @@ function Portfolio() {
       if (newUnits <= 0) {
         newPortfolio = newPortfolio.filter((_, idx) => idx !== existingIndex)
       } else {
-        const updated = {
-          ...existing,
-          units: newUnits,
-          invested: newInvested,
-          currentValue: newInvested * 1.1, // fake 10% gain
-        }
+        const updated = { ...existing, units: newUnits, invested: newInvested }
         newPortfolio[existingIndex] = updated
       }
     } else if (isBuy) {
@@ -60,29 +93,30 @@ function Portfolio() {
         name: coinName.trim(),
         units: numUnits,
         invested: numInvested,
-        currentValue: numInvested * 1.1,
-        change: '+10.0%'
       }
       newPortfolio.push(newItem)
+    } else {
+      alert('Cannot sell coin you do not own')
+      return
     }
 
     setPortfolio(newPortfolio)
-
-    // Reset form
+    setShowForm(false)
     setCoinName('')
     setUnits('')
     setInvested('')
-    setShowForm(false)
   }
 
   const getTotalValue = () => {
-    const total = portfolio.reduce((sum, item) => sum + item.currentValue, 0)
-    return total.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+    return portfolio
+      .reduce((sum, item) => {
+        const livePrice = liveData[item.id]?.price || (item.invested / item.units) || 0
+        return sum + (item.units * livePrice)
+      }, 0)
+      .toLocaleString('en-US', { style: 'currency', currency: 'USD' })
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />
-  }
+  if (!user) return <Navigate to="/login" replace />
 
   return (
     <div className="min-h-screen bg-vault-light p-8">
@@ -105,31 +139,27 @@ function Portfolio() {
                 <button
                   type="button"
                   onClick={() => setIsBuy(true)}
-                  className={`flex-1 py-3 rounded-lg font-semibold transition ${
-                    isBuy ? 'bg-vault-primary text-white' : 'bg-gray-200 text-gray-700'
-                  }`}
+                  className={`flex-1 py-3 rounded-lg font-semibold transition ${isBuy ? 'bg-vault-primary text-white' : 'bg-gray-200 text-gray-700'}`}
                 >
                   Buy
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsBuy(false)}
-                  className={`flex-1 py-3 rounded-lg font-semibold transition ${
-                    !isBuy ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'
-                  }`}
+                  className={`flex-1 py-3 rounded-lg font-semibold transition ${!isBuy ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700'}`}
                 >
                   Sell
                 </button>
               </div>
 
               <div>
-                <label className="block text-gray-700 mb-2 font-medium">Coin Name</label>
+                <label className="block text-gray-700 mb-2 font-medium">Coin ID (CoinGecko)</label>
                 <input
                   type="text"
                   value={coinName}
                   onChange={(e) => setCoinName(e.target.value)}
                   className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-vault-accent"
-                  placeholder="e.g. Bitcoin BTC"
+                  placeholder="bitcoin, ethereum, solana..."
                   required
                 />
               </div>
@@ -140,7 +170,7 @@ function Portfolio() {
                 </label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="0.0001"
                   value={units}
                   onChange={(e) => setUnits(e.target.value)}
                   className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-vault-accent"
@@ -186,9 +216,7 @@ function Portfolio() {
         {portfolio.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl shadow-md p-12">
             <p className="text-2xl text-gray-600 mb-4">Your portfolio is empty.</p>
-            <p className="text-lg text-gray-500">
-              Click "Add Transaction" to start building your investments.
-            </p>
+            <p className="text-lg text-gray-500">Add your first investment above.</p>
           </div>
         ) : (
           <div>
@@ -200,23 +228,31 @@ function Portfolio() {
                     <th className="px-8 py-5 text-left text-lg font-semibold text-gray-700">Units</th>
                     <th className="px-8 py-5 text-left text-lg font-semibold text-gray-700">Invested</th>
                     <th className="px-8 py-5 text-left text-lg font-semibold text-gray-700">Current Value</th>
-                    <th className="px-8 py-5 text-left text-lg font-semibold text-gray-700">Change</th>
+                    <th className="px-8 py-5 text-left text-lg font-semibold text-gray-700">24h Change</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {portfolio.map((item) => (
-                    <tr key={item.id} className="border-t hover:bg-gray-50 transition">
-                      <td className="px-8 py-6 font-medium text-gray-900">{item.name}</td>
-                      <td className="px-8 py-6 text-gray-700">{item.units.toFixed(4)}</td>
-                      <td className="px-8 py-6 text-gray-700">${item.invested.toLocaleString()}</td>
-                      <td className="px-8 py-6 text-gray-700">${item.currentValue.toLocaleString()}</td>
-                      <td className="px-8 py-6">
-                        <span className={item.change.startsWith('+') ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                          {item.change}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {portfolio.map((item) => {
+                    const live = liveData[item.id] || {}
+                    const currentPrice = live.price || (item.invested / item.units) || 0
+                    const currentValue = item.units * currentPrice
+                    return (
+                      <tr key={item.id} className="border-t hover:bg-gray-50 transition">
+                        <td className="px-8 py-6 font-medium text-gray-900 flex items-center">
+                          {live.image && <img src={live.image} alt={item.name} className="w-8 h-8 mr-3 rounded-full" />}
+                          {item.name}
+                        </td>
+                        <td className="px-8 py-6 text-gray-700">{item.units.toFixed(4)}</td>
+                        <td className="px-8 py-6 text-gray-700">${item.invested.toLocaleString()}</td>
+                        <td className="px-8 py-6 text-gray-700">${currentValue.toLocaleString()}</td>
+                        <td className="px-8 py-6">
+                          <span className={live.change >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                            {live.change ? `${live.change}%` : 'N/A'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -224,6 +260,9 @@ function Portfolio() {
             <div className="text-right text-3xl font-bold text-vault-primary">
               Total Portfolio Value: {getTotalValue()}
             </div>
+
+            {loading && <p className="text-center mt-4 text-gray-600">Updating prices...</p>}
+            {error && <p className="text-center mt-4 text-red-600">{error}</p>}
           </div>
         )}
       </div>

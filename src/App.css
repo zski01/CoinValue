@@ -1,42 +1,43 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* src/index.css (full file) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #10b981;
+  --accent: #6366f1;
+  --bg-light: #f8fafc;
+  --text-light: #0f172a;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.dark {
+  --bg-light: #0f172a;
+  --text-light: #f8fafc;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+body {
+  background-color: var(--bg-light);
+  color: var(--text-light);
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.dark .bg-vault-light {
+  background-color: var(--bg-light);
 }
 
-.card {
-  padding: 2em;
+.dark .bg-white {
+  background-color: #1e293b;
 }
 
-.read-the-docs {
-  color: #888;
+.dark .text-gray-700 {
+  color: #cbd5e1;
+}
+
+.dark .bg-gray-50 {
+  background-color: #334155;
+}
+
+.dark .border-gray-200 {
+  border-color: #475569;
 }
