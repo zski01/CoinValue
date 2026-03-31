@@ -24,5 +24,7 @@ export const getProfile = () => API.get('/profile')
 export const updateUserData = (data) => API.post('/user-data', data) // for watchlist/portfolio
 export const getTransactions = () => API.get('/transactions')
 export const addTransaction = (data) => API.post('/transactions', data)
+export const getUserData = () => API.get('/user-data')
+export const updateUserData = (data) => API.post('/user-data', data)
 
 export default API

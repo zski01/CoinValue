@@ -6,23 +6,21 @@ import axios from 'axios'
 function Portfolio() {
   const { user } = useAuth()
 
-  // Portfolio data (units & invested amount)
   const [portfolio, setPortfolio] = useState(() => {
     const saved = localStorage.getItem('coinvault_portfolio')
     return saved ? JSON.parse(saved) : []
   })
 
-  // Live data from CoinGecko
   const [liveData, setLiveData] = useState({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Save portfolio to localStorage
+  // Save portfolio to local fallback
   useEffect(() => {
     localStorage.setItem('coinvault_portfolio', JSON.stringify(portfolio))
   }, [portfolio])
 
-  // Fetch live prices whenever portfolio changes
+  // Fetch live prices for portfolio coins
   useEffect(() => {
     if (portfolio.length === 0) return
 
@@ -39,12 +37,13 @@ function Portfolio() {
             price: coin.current_price,
             change: coin.price_change_percentage_24h.toFixed(2),
             image: coin.image,
+            symbol: coin.symbol.toUpperCase(),
           }
         })
         setLiveData(dataMap)
         setError(null)
       } catch (err) {
-        setError('Failed to load live prices. API may be rate-limited.')
+        setError('Failed to load live prices')
         console.error(err)
       } finally {
         setLoading(false)
@@ -52,11 +51,11 @@ function Portfolio() {
     }
 
     fetchLiveData()
-    const interval = setInterval(fetchLiveData, 60000) // refresh every minute
+    const interval = setInterval(fetchLiveData, 60000)
     return () => clearInterval(interval)
   }, [portfolio])
 
-  // Form state for buy/sell
+  // Form for buy/sell
   const [showForm, setShowForm] = useState(false)
   const [isBuy, setIsBuy] = useState(true)
   const [coinName, setCoinName] = useState('')
@@ -110,8 +109,9 @@ function Portfolio() {
   const getTotalValue = () => {
     return portfolio
       .reduce((sum, item) => {
-        const livePrice = liveData[item.id]?.price || (item.invested / item.units) || 0
-        return sum + (item.units * livePrice)
+        const live = liveData[item.id]
+        const value = item.units * (live?.price || 0)
+        return sum + value
       }, 0)
       .toLocaleString('en-US', { style: 'currency', currency: 'USD' })
   }
@@ -119,13 +119,13 @@ function Portfolio() {
   if (!user) return <Navigate to="/login" replace />
 
   return (
-    <div className="min-h-screen bg-vault-light p-8">
+    <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-10">
-          <h1 className="text-5xl font-bold text-vault-primary">My Portfolio</h1>
+          <h1 className="text-5xl font-bold text-emerald-600">My Portfolio</h1>
           <button
             onClick={() => setShowForm(true)}
-            className="bg-vault-accent text-white px-8 py-4 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-md"
+            className="bg-emerald-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-emerald-700 transition shadow-md"
           >
             + Add Transaction
           </button>
@@ -133,13 +133,13 @@ function Portfolio() {
 
         {showForm && (
           <div className="bg-white p-8 rounded-xl shadow-md mb-10">
-            <h2 className="text-3xl font-bold text-vault-primary mb-6">New Transaction</h2>
+            <h2 className="text-3xl font-bold text-emerald-600 mb-6">New Transaction</h2>
             <form onSubmit={handleTransaction} className="space-y-6">
               <div className="flex space-x-4 mb-6">
                 <button
                   type="button"
                   onClick={() => setIsBuy(true)}
-                  className={`flex-1 py-3 rounded-lg font-semibold transition ${isBuy ? 'bg-vault-primary text-white' : 'bg-gray-200 text-gray-700'}`}
+                  className={`flex-1 py-3 rounded-lg font-semibold transition ${isBuy ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700'}`}
                 >
                   Buy
                 </button>
@@ -158,7 +158,7 @@ function Portfolio() {
                   type="text"
                   value={coinName}
                   onChange={(e) => setCoinName(e.target.value)}
-                  className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-vault-accent"
+                  className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="bitcoin, ethereum, solana..."
                   required
                 />
@@ -173,7 +173,7 @@ function Portfolio() {
                   step="0.0001"
                   value={units}
                   onChange={(e) => setUnits(e.target.value)}
-                  className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-vault-accent"
+                  className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="e.g. 0.5"
                   required
                 />
@@ -188,7 +188,7 @@ function Portfolio() {
                   step="0.01"
                   value={invested}
                   onChange={(e) => setInvested(e.target.value)}
-                  className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-vault-accent"
+                  className="w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="e.g. 25000"
                   required
                 />
@@ -197,7 +197,7 @@ function Portfolio() {
               <div className="flex space-x-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-vault-accent text-white py-4 rounded-lg font-semibold hover:bg-indigo-700 transition"
+                  className="flex-1 bg-emerald-600 text-white py-4 rounded-lg font-semibold hover:bg-emerald-700 transition"
                 >
                   {isBuy ? 'Buy' : 'Sell'}
                 </button>
@@ -234,8 +234,7 @@ function Portfolio() {
                 <tbody>
                   {portfolio.map((item) => {
                     const live = liveData[item.id] || {}
-                    const currentPrice = live.price || (item.invested / item.units) || 0
-                    const currentValue = item.units * currentPrice
+                    const value = item.units * (live.price || 0)
                     return (
                       <tr key={item.id} className="border-t hover:bg-gray-50 transition">
                         <td className="px-8 py-6 font-medium text-gray-900 flex items-center">
@@ -244,7 +243,7 @@ function Portfolio() {
                         </td>
                         <td className="px-8 py-6 text-gray-700">{item.units.toFixed(4)}</td>
                         <td className="px-8 py-6 text-gray-700">${item.invested.toLocaleString()}</td>
-                        <td className="px-8 py-6 text-gray-700">${currentValue.toLocaleString()}</td>
+                        <td className="px-8 py-6 text-gray-700">${value.toLocaleString()}</td>
                         <td className="px-8 py-6">
                           <span className={live.change >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
                             {live.change ? `${live.change}%` : 'N/A'}
@@ -257,7 +256,7 @@ function Portfolio() {
               </table>
             </div>
 
-            <div className="text-right text-3xl font-bold text-vault-primary">
+            <div className="text-right text-3xl font-bold text-emerald-600">
               Total Portfolio Value: {getTotalValue()}
             </div>
 
